@@ -23,15 +23,10 @@
               <thead>
                 <tr>
                   <th>Produto</th>
-
                   <th width="120">Estoque</th>
-
                   <th width="140">Quantidade</th>
-
                   <th width="180">Preço Venda</th>
-
                   <th width="180">Subtotal</th>
-
                   <th width="100">Ações</th>
                 </tr>
               </thead>
@@ -156,6 +151,7 @@
               <th>Lucro</th>
               <th>Status</th>
               <th>Data</th>
+              <th width="140">Ações</th>
             </tr>
           </thead>
 
@@ -201,10 +197,20 @@
               <td>
                 {{ formatDate(sale.created_at) }}
               </td>
+
+              <td>
+                <button
+                  v-if="sale.status === 'completed'"
+                  class="btn btn-danger btn-sm"
+                  @click="cancelSale(sale.id)"
+                >
+                  Cancelar
+                </button>
+              </td>
             </tr>
 
             <tr v-if="!sales.length">
-              <td colspan="7" class="text-center py-4">
+              <td colspan="8" class="text-center py-4">
                 Nenhuma venda registrada
               </td>
             </tr>
@@ -214,6 +220,7 @@
     </div>
   </div>
 </template>
+
 <script setup>
 import { computed, onMounted, reactive, ref } from "vue";
 
@@ -333,10 +340,7 @@ async function registerSale() {
       Swal.fire({
         icon: "error",
         title: "Estoque insuficiente",
-
-        text:
-          `O produto ${product.nome} possui apenas ` +
-          `${product.estoque} unidades.`,
+        text: `O produto ${product.nome} possui apenas ${product.estoque} unidades.`,
       });
 
       return;
@@ -351,14 +355,13 @@ async function registerSale() {
     Swal.fire({
       icon: "success",
       title: "Venda registrada",
-
       html: `
-                <strong>Total:</strong>
-                R$ ${response.data.data.total}
-                <br>
-                <strong>Lucro:</strong>
-                R$ ${response.data.data.lucro}
-                `,
+        <strong>Total:</strong>
+        R$ ${response.data.data.total}
+        <br>
+        <strong>Lucro:</strong>
+        R$ ${response.data.data.lucro}
+      `,
     });
 
     form.cliente = "";
@@ -373,20 +376,42 @@ async function registerSale() {
 
     await loadProducts();
     await loadSales();
+  } finally {
+    loading.value = false;
+  }
+}
+
+async function cancelSale(saleId) {
+  const result = await Swal.fire({
+    icon: "warning",
+    title: "Cancelar venda?",
+    text: "Essa ação irá devolver os itens ao estoque.",
+    showCancelButton: true,
+    confirmButtonText: "Sim, cancelar",
+    cancelButtonText: "Fechar",
+  });
+
+  if (!result.isConfirmed) {
+    return;
+  }
+
+  try {
+    await api.post(`/vendas/${saleId}/cancelar`);
+
+    Swal.fire({
+      icon: "success",
+      title: "Sucesso",
+      text: "Venda cancelada com sucesso.",
+    });
+
+    await loadSales();
+    await loadProducts();
   } catch (error) {
-    let message = "Erro ao registrar venda.";
-
-    if (error.response?.data?.message) {
-      message = error.response.data.message;
-    }
-
     Swal.fire({
       icon: "error",
       title: "Erro",
-      text: message,
+      text: error.response?.data?.message ?? "Erro ao cancelar venda.",
     });
-  } finally {
-    loading.value = false;
   }
 }
 
