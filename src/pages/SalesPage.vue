@@ -1,152 +1,230 @@
 <template>
-  <div class="card shadow-sm">
-    <div class="card-header">
-      <h4 class="mb-0">Registro de Venda</h4>
+  <div class="d-flex flex-column gap-4">
+    <div class="card shadow-sm">
+      <div class="card-header">
+        <h4 class="mb-0">Registro de Venda</h4>
+      </div>
+
+      <div class="card-body">
+        <form @submit.prevent="registerSale">
+          <div class="mb-4">
+            <label class="form-label"> Cliente </label>
+
+            <input
+              v-model="form.cliente"
+              type="text"
+              class="form-control"
+              required
+            />
+          </div>
+
+          <div class="table-responsive">
+            <table class="table table-bordered align-middle">
+              <thead>
+                <tr>
+                  <th>Produto</th>
+
+                  <th width="120">Estoque</th>
+
+                  <th width="140">Quantidade</th>
+
+                  <th width="180">Preço Venda</th>
+
+                  <th width="180">Subtotal</th>
+
+                  <th width="100">Ações</th>
+                </tr>
+              </thead>
+
+              <tbody>
+                <tr v-for="(item, index) in form.produtos" :key="index">
+                  <td>
+                    <select
+                      v-model="item.id"
+                      class="form-select"
+                      @change="onProductChange(item)"
+                      required
+                    >
+                      <option value="">Selecione</option>
+
+                      <option
+                        v-for="product in products"
+                        :key="product.id"
+                        :value="product.id"
+                      >
+                        {{ product.nome }}
+                      </option>
+                    </select>
+                  </td>
+
+                  <td>
+                    {{ getProduct(item.id)?.estoque ?? 0 }}
+                  </td>
+
+                  <td>
+                    <input
+                      v-model="item.quantidade"
+                      type="number"
+                      min="1"
+                      class="form-control"
+                    />
+                  </td>
+
+                  <td>
+                    <input
+                      v-model="item.preco_unitario"
+                      type="number"
+                      step="0.01"
+                      min="0.01"
+                      class="form-control"
+                    />
+                  </td>
+
+                  <td>
+                    R$
+                    {{ calculateSubtotal(item).toFixed(2) }}
+                  </td>
+
+                  <td>
+                    <button
+                      type="button"
+                      class="btn btn-danger w-100"
+                      @click="removeProductRow(index)"
+                    >
+                      X
+                    </button>
+                  </td>
+                </tr>
+              </tbody>
+            </table>
+          </div>
+
+          <div class="row mb-4">
+            <div class="col-md-6">
+              <div class="alert alert-info">
+                <strong> Total Estimado: </strong>
+
+                R$
+                {{ totalEstimated.toFixed(2) }}
+              </div>
+            </div>
+
+            <div class="col-md-6">
+              <div class="alert alert-success">
+                <strong> Lucro Estimado: </strong>
+
+                R$
+                {{ profitEstimated.toFixed(2) }}
+              </div>
+            </div>
+          </div>
+
+          <div class="d-flex gap-2">
+            <button
+              type="button"
+              class="btn btn-secondary"
+              @click="addProductRow"
+            >
+              + Adicionar Produto
+            </button>
+
+            <button
+              type="submit"
+              class="btn btn-primary ms-auto"
+              :disabled="loading"
+            >
+              {{ loading ? "Salvando..." : "Registrar Venda" }}
+            </button>
+          </div>
+        </form>
+      </div>
     </div>
 
-    <div class="card-body">
-      <form @submit.prevent="registerSale">
-        <div class="mb-4">
-          <label class="form-label"> Cliente </label>
+    <div class="card shadow-sm">
+      <div class="card-header">
+        <h4 class="mb-0">Histórico de Vendas</h4>
+      </div>
 
-          <input
-            v-model="form.cliente"
-            type="text"
-            class="form-control"
-            required
-          />
-        </div>
+      <div class="table-responsive">
+        <table class="table table-striped mb-0 align-middle">
+          <thead>
+            <tr>
+              <th>ID</th>
+              <th>Cliente</th>
+              <th>Produtos</th>
+              <th>Total</th>
+              <th>Lucro</th>
+              <th>Status</th>
+              <th>Data</th>
+            </tr>
+          </thead>
 
-        <div class="table-responsive">
-          <table class="table table-bordered align-middle">
-            <thead>
-              <tr>
-                <th>Produto</th>
+          <tbody>
+            <tr v-for="sale in sales" :key="sale.id">
+              <td>#{{ sale.id }}</td>
 
-                <th width="120">Estoque</th>
+              <td>
+                {{ sale.cliente }}
+              </td>
 
-                <th width="140">Quantidade</th>
+              <td>
+                <div v-for="(item, index) in sale.produtos" :key="index">
+                  <strong>
+                    {{ item.produto }}
+                  </strong>
 
-                <th width="180">Preço Venda</th>
+                  ({{ item.quantidade }}x)
+                </div>
+              </td>
 
-                <th width="180">Subtotal</th>
+              <td>
+                R$
+                {{ Number(sale.total).toFixed(2) }}
+              </td>
 
-                <th width="100">Ações</th>
-              </tr>
-            </thead>
+              <td>
+                R$
+                {{ Number(sale.lucro).toFixed(2) }}
+              </td>
 
-            <tbody>
-              <tr v-for="(item, index) in form.produtos" :key="index">
-                <td>
-                  <select
-                    v-model="item.id"
-                    class="form-select"
-                    @change="onProductChange(item)"
-                    required
-                  >
-                    <option value="">Selecione</option>
+              <td>
+                <span
+                  class="badge"
+                  :class="
+                    sale.status === 'completed' ? 'bg-success' : 'bg-danger'
+                  "
+                >
+                  {{ sale.status }}
+                </span>
+              </td>
 
-                    <option
-                      v-for="product in products"
-                      :key="product.id"
-                      :value="product.id"
-                    >
-                      {{ product.nome }}
-                    </option>
-                  </select>
-                </td>
+              <td>
+                {{ formatDate(sale.created_at) }}
+              </td>
+            </tr>
 
-                <td>
-                  {{ getProduct(item.id)?.estoque ?? 0 }}
-                </td>
-
-                <td>
-                  <input
-                    v-model="item.quantidade"
-                    type="number"
-                    min="1"
-                    class="form-control"
-                  />
-                </td>
-
-                <td>
-                  <input
-                    v-model="item.preco_unitario"
-                    type="number"
-                    step="0.01"
-                    min="0.01"
-                    class="form-control"
-                  />
-                </td>
-
-                <td>
-                  R$
-                  {{ calculateSubtotal(item).toFixed(2) }}
-                </td>
-
-                <td>
-                  <button
-                    type="button"
-                    class="btn btn-danger w-100"
-                    @click="removeProductRow(index)"
-                  >
-                    X
-                  </button>
-                </td>
-              </tr>
-            </tbody>
-          </table>
-        </div>
-
-        <div class="row mb-4">
-          <div class="col-md-6">
-            <div class="alert alert-info">
-              <strong> Total Estimado: </strong>
-
-              R$
-              {{ totalEstimated.toFixed(2) }}
-            </div>
-          </div>
-
-          <div class="col-md-6">
-            <div class="alert alert-success">
-              <strong> Lucro Estimado: </strong>
-
-              R$
-              {{ profitEstimated.toFixed(2) }}
-            </div>
-          </div>
-        </div>
-
-        <div class="d-flex gap-2">
-          <button
-            type="button"
-            class="btn btn-secondary"
-            @click="addProductRow"
-          >
-            + Adicionar Produto
-          </button>
-
-          <button
-            type="submit"
-            class="btn btn-primary ms-auto"
-            :disabled="loading"
-          >
-            {{ loading ? "Salvando..." : "Registrar Venda" }}
-          </button>
-        </div>
-      </form>
+            <tr v-if="!sales.length">
+              <td colspan="7" class="text-center py-4">
+                Nenhuma venda registrada
+              </td>
+            </tr>
+          </tbody>
+        </table>
+      </div>
     </div>
   </div>
 </template>
 <script setup>
 import { computed, onMounted, reactive, ref } from "vue";
+
 import Swal from "sweetalert2";
 import api from "../services/api";
 
 const loading = ref(false);
 
 const products = ref([]);
+
+const sales = ref([]);
 
 const form = reactive({
   cliente: "",
@@ -170,6 +248,20 @@ async function loadProducts() {
       icon: "error",
       title: "Erro",
       text: "Erro ao carregar produtos.",
+    });
+  }
+}
+
+async function loadSales() {
+  try {
+    const response = await api.get("/vendas");
+
+    sales.value = response.data.data;
+  } catch (error) {
+    Swal.fire({
+      icon: "error",
+      title: "Erro",
+      text: "Erro ao carregar histórico de vendas.",
     });
   }
 }
@@ -241,6 +333,7 @@ async function registerSale() {
       Swal.fire({
         icon: "error",
         title: "Estoque insuficiente",
+
         text:
           `O produto ${product.nome} possui apenas ` +
           `${product.estoque} unidades.`,
@@ -258,6 +351,7 @@ async function registerSale() {
     Swal.fire({
       icon: "success",
       title: "Venda registrada",
+
       html: `
                 <strong>Total:</strong>
                 R$ ${response.data.data.total}
@@ -278,6 +372,7 @@ async function registerSale() {
     ];
 
     await loadProducts();
+    await loadSales();
   } catch (error) {
     let message = "Erro ao registrar venda.";
 
@@ -295,7 +390,12 @@ async function registerSale() {
   }
 }
 
+function formatDate(date) {
+  return new Date(date).toLocaleString("pt-BR");
+}
+
 onMounted(() => {
   loadProducts();
+  loadSales();
 });
 </script>
