@@ -33,6 +33,11 @@
               </div>
 
               <button class="btn btn-primary w-100" :disabled="loading">
+                <span
+                  v-if="loading"
+                  class="spinner-border spinner-border-sm me-2"
+                />
+
                 {{ loading ? "Salvando..." : "Salvar Produto" }}
               </button>
             </form>
@@ -59,6 +64,22 @@
               </thead>
 
               <tbody>
+                <tr v-if="tableLoading">
+                  <td colspan="5" class="text-center py-5">
+                    <div class="d-flex flex-column align-items-center gap-3">
+                      <div class="spinner-border text-primary" role="status" />
+
+                      <span class="text-muted"> Carregando produtos... </span>
+                    </div>
+                  </td>
+                </tr>
+
+                <tr v-else-if="!products.length">
+                  <td colspan="5" class="text-center py-4">
+                    Nenhum produto cadastrado
+                  </td>
+                </tr>
+
                 <tr v-for="product in products" :key="product.id">
                   <td>
                     {{ product.id }}
@@ -82,12 +103,6 @@
                     {{ product.estoque }}
                   </td>
                 </tr>
-
-                <tr v-if="!products.length">
-                  <td colspan="5" class="text-center py-4">
-                    Nenhum produto cadastrado
-                  </td>
-                </tr>
               </tbody>
             </table>
           </div>
@@ -96,12 +111,16 @@
     </div>
   </div>
 </template>
+
 <script setup>
 import { onMounted, reactive, ref } from "vue";
+
 import Swal from "sweetalert2";
 import api from "../services/api";
 
 const loading = ref(false);
+
+const tableLoading = ref(true);
 
 const products = ref([]);
 
@@ -111,6 +130,8 @@ const form = reactive({
 });
 
 async function loadProducts() {
+  tableLoading.value = true;
+
   try {
     const response = await api.get("/produtos");
 
@@ -121,6 +142,8 @@ async function loadProducts() {
       title: "Erro",
       text: "Erro ao carregar produtos.",
     });
+  } finally {
+    tableLoading.value = false;
   }
 }
 

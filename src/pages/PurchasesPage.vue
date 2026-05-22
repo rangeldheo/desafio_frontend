@@ -35,8 +35,19 @@
               <tbody>
                 <tr v-for="(item, index) in form.produtos" :key="index">
                   <td>
-                    <select v-model="item.id" class="form-select" required>
-                      <option value="">Selecione</option>
+                    <select
+                      v-model="item.id"
+                      class="form-select"
+                      required
+                      :disabled="productsLoading"
+                    >
+                      <option value="">
+                        {{
+                          productsLoading
+                            ? "Carregando produtos..."
+                            : "Selecione"
+                        }}
+                      </option>
 
                       <option
                         v-for="product in products"
@@ -97,6 +108,11 @@
               class="btn btn-primary ms-auto"
               :disabled="loading"
             >
+              <span
+                v-if="loading"
+                class="spinner-border spinner-border-sm me-2"
+              />
+
               {{ loading ? "Salvando..." : "Registrar Compra" }}
             </button>
           </div>
@@ -113,14 +129,33 @@
         <table class="table table-striped mb-0 align-middle">
           <thead>
             <tr>
-              <th>ID</th>
+              <th width="80">ID</th>
+
               <th>Fornecedor</th>
+
               <th>Produtos</th>
-              <th>Data</th>
+
+              <th width="200">Data</th>
             </tr>
           </thead>
 
           <tbody>
+            <tr v-if="tableLoading">
+              <td colspan="4" class="text-center py-5">
+                <div class="d-flex flex-column align-items-center gap-3">
+                  <div class="spinner-border text-primary" role="status" />
+
+                  <span class="text-muted"> Carregando histórico... </span>
+                </div>
+              </td>
+            </tr>
+
+            <tr v-else-if="!purchases.length">
+              <td colspan="4" class="text-center py-4">
+                Nenhuma compra registrada
+              </td>
+            </tr>
+
             <tr v-for="purchase in purchases" :key="purchase.id">
               <td>#{{ purchase.id }}</td>
 
@@ -129,23 +164,23 @@
               </td>
 
               <td>
-                <div v-for="(item, index) in purchase.produtos" :key="index">
+                <div
+                  v-for="(item, index) in purchase.produtos"
+                  :key="index"
+                  class="mb-1"
+                >
                   <strong>
                     {{ item.produto }}
                   </strong>
-
-                  ({{ item.quantidade }}x)
+                  - {{ item.quantidade }} unidade(s) -
+                  <span class="text-success fw-semibold">
+                    {{ formatCurrency(item.preco_unitario) }}
+                  </span>
                 </div>
               </td>
 
               <td>
                 {{ formatDate(purchase.created_at) }}
-              </td>
-            </tr>
-
-            <tr v-if="!purchases.length">
-              <td colspan="4" class="text-center py-4">
-                Nenhuma compra registrada
               </td>
             </tr>
           </tbody>
@@ -154,12 +189,18 @@
     </div>
   </div>
 </template>
+
 <script setup>
 import { onMounted, reactive, ref } from "vue";
+
 import Swal from "sweetalert2";
 import api from "../services/api";
 
 const loading = ref(false);
+
+const tableLoading = ref(true);
+
+const productsLoading = ref(true);
 
 const products = ref([]);
 
@@ -178,6 +219,8 @@ const form = reactive({
 });
 
 async function loadProducts() {
+  productsLoading.value = true;
+
   try {
     const response = await api.get("/produtos");
 
@@ -188,10 +231,14 @@ async function loadProducts() {
       title: "Erro",
       text: "Erro ao carregar produtos.",
     });
+  } finally {
+    productsLoading.value = false;
   }
 }
 
 async function loadPurchases() {
+  tableLoading.value = true;
+
   try {
     const response = await api.get("/compras");
 
@@ -202,6 +249,8 @@ async function loadPurchases() {
       title: "Erro",
       text: "Erro ao carregar histórico de compras.",
     });
+  } finally {
+    tableLoading.value = false;
   }
 }
 
@@ -245,18 +294,6 @@ async function registerPurchase() {
 
     await loadPurchases();
     await loadProducts();
-  } catch (error) {
-    let message = "Erro ao registrar compra.";
-
-    if (error.response?.data?.message) {
-      message = error.response.data.message;
-    }
-
-    Swal.fire({
-      icon: "error",
-      title: "Erro",
-      text: message,
-    });
   } finally {
     loading.value = false;
   }
@@ -264,6 +301,13 @@ async function registerPurchase() {
 
 function formatDate(date) {
   return new Date(date).toLocaleString("pt-BR");
+}
+
+function formatCurrency(value) {
+  return new Intl.NumberFormat("pt-BR", {
+    style: "currency",
+    currency: "BRL",
+  }).format(value);
 }
 
 onMounted(() => {

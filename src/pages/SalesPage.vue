@@ -39,8 +39,15 @@
                       class="form-select"
                       @change="onProductChange(item)"
                       required
+                      :disabled="productsLoading"
                     >
-                      <option value="">Selecione</option>
+                      <option value="">
+                        {{
+                          productsLoading
+                            ? "Carregando produtos..."
+                            : "Selecione"
+                        }}
+                      </option>
 
                       <option
                         v-for="product in products"
@@ -128,6 +135,11 @@
               class="btn btn-primary ms-auto"
               :disabled="loading"
             >
+              <span
+                v-if="loading"
+                class="spinner-border spinner-border-sm me-2"
+              />
+
               {{ loading ? "Salvando..." : "Registrar Venda" }}
             </button>
           </div>
@@ -156,6 +168,22 @@
           </thead>
 
           <tbody>
+            <tr v-if="tableLoading">
+              <td colspan="8" class="text-center py-5">
+                <div class="d-flex flex-column align-items-center gap-3">
+                  <div class="spinner-border text-primary" role="status" />
+
+                  <span class="text-muted"> Carregando histórico... </span>
+                </div>
+              </td>
+            </tr>
+
+            <tr v-else-if="!sales.length">
+              <td colspan="8" class="text-center py-4">
+                Nenhuma venda registrada
+              </td>
+            </tr>
+
             <tr v-for="sale in sales" :key="sale.id">
               <td>#{{ sale.id }}</td>
 
@@ -208,12 +236,6 @@
                 </button>
               </td>
             </tr>
-
-            <tr v-if="!sales.length">
-              <td colspan="8" class="text-center py-4">
-                Nenhuma venda registrada
-              </td>
-            </tr>
           </tbody>
         </table>
       </div>
@@ -228,6 +250,10 @@ import Swal from "sweetalert2";
 import api from "../services/api";
 
 const loading = ref(false);
+
+const tableLoading = ref(true);
+
+const productsLoading = ref(true);
 
 const products = ref([]);
 
@@ -246,30 +272,26 @@ const form = reactive({
 });
 
 async function loadProducts() {
+  productsLoading.value = true;
+
   try {
     const response = await api.get("/produtos");
 
     products.value = response.data.data;
-  } catch (error) {
-    Swal.fire({
-      icon: "error",
-      title: "Erro",
-      text: "Erro ao carregar produtos.",
-    });
+  } finally {
+    productsLoading.value = false;
   }
 }
 
 async function loadSales() {
+  tableLoading.value = true;
+
   try {
     const response = await api.get("/vendas");
 
     sales.value = response.data.data;
-  } catch (error) {
-    Swal.fire({
-      icon: "error",
-      title: "Erro",
-      text: "Erro ao carregar histórico de vendas.",
-    });
+  } finally {
+    tableLoading.value = false;
   }
 }
 
